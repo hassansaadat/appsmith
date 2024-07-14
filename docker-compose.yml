@@ -1,0 +1,9 @@
+services:
+   appsmith:
+     image: index.docker.io/appsmith/appsmith-ce:${APPSMITH_VERSION}
+     container_name: appsmith
+     ports:
+         - "127.0.0.1:${PORT}:80"
+     volumes:
+         - ./data:/appsmith-stacks
+     restart: unless-stopped
