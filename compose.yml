@@ -1,0 +1,64 @@
+services:
+  appsmith:
+    image: appsmith/appsmith-ee:${APPSMITH_VERSION}
+    container_name: appsmith
+    hostname: appsmith
+    restart: unless-stopped
+    ports:
+      - "${APPSMITH_PORT}:80"
+    depends_on:
+      - mongodb
+      - redis
+    volumes:
+      - appsmith-data:/appsmith-stacks
+
+  mongodb:
+    image: mongo:${MONGODB_VERSION}
+    container_name: appsmith-mongodb
+    hostname: appsmith-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+    command: mongod --replSet rs0 --bind_ip_all --keyFile /data/keyfile
+    ports:
+      - "${MONGODB_PORT}:27017"
+    volumes:
+      - appsmith-mongodb-data:/data/db
+      - ./mongo-keyfile:/data/keyfile:ro
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh -u $$MONGO_INITDB_ROOT_USERNAME -p $$MONGO_INITDB_ROOT_PASSWORD --quiet | grep 1
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongodb-init:
+      image: mongo:${MONGODB_VERSION}
+      depends_on:
+        mongodb:
+          condition: service_healthy
+      environment:
+        - MONGO_ROOT_USER=${MONGO_ROOT_USER}
+        - MONGO_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
+        - MONGO_APP_USER=${MONGO_APP_USER}
+        - MONGO_APP_PASSWORD=${MONGO_APP_PASSWORD}
+        - MONGO_APP_DATABASE=${MONGO_APP_DATABASE}
+      entrypoint: ./scripts/init-mongodb.sh
+      volumes:
+        - ./init-mongodb.sh:/scripts/init-mongodb.sh
+      restart: "no"
+
+  redis:
+    image: redis:${REDIS_VERSION}
+    container_name: appsmith-redis
+    hostname: appsmith-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - appsmith-redis-data:/data
+
+volumes:
+  appsmith-data:
+  appsmith-mongodb-data:
+  appsmith-redis-data:

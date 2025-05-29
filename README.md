@@ -1,7 +1,7 @@
 # Appsmith Docker Compose
 
 # Requirements
-- Docker + Docker compose plugin
+- Docker
 
 # Usage
 Copy `.env.example` to `.env` and change variables as you need.
