@@ -1,0 +1,109 @@
+services:
+  mongodb-primary:
+    image: docker.io/bitnami/mongodb:${MONGODB_VERSION}
+    container_name: appsmith-mongodb-primary
+    hostname: appsmith-mongodb-primary
+    environment:
+      - MONGODB_ADVERTISED_HOSTNAME=appsmith-mongodb-primary
+      - MONGODB_USERNAME=${MONGODB_USERNAME}
+      - MONGODB_DATABASE=${MONGODB_DATABASE}
+      - MONGODB_PASSWORD=${MONGODB_PASSWORD}
+      - MONGODB_ROOT_PASSWORD=${MONGODB_ROOT_PASSWORD}
+      - MONGODB_REPLICA_SET_MODE=primary
+      - MONGODB_REPLICA_SET_KEY=${MONGODB_REPLICA_SET_KEY}
+    volumes:
+      - mongodb_primary_data:/bitnami/mongodb
+    networks:
+      - appsmith-internal
+
+  mongodb-secondary:
+    image: docker.io/bitnami/mongodb:${MONGODB_VERSION}
+    container_name: appsmith-mongodb-secondary
+    hostname: appsmith-mongodb-secondary
+    environment:
+      - MONGODB_ADVERTISED_HOSTNAME=appsmith-mongodb-secondary
+      - MONGODB_REPLICA_SET_MODE=secondary
+      - MONGODB_INITIAL_PRIMARY_HOST=appsmith-mongodb-primary
+      - MONGODB_INITIAL_PRIMARY_ROOT_PASSWORD=${MONGODB_ROOT_PASSWORD}
+      - MONGODB_REPLICA_SET_KEY=${MONGODB_REPLICA_SET_KEY}
+    depends_on:
+      - mongodb-primary
+    volumes:
+      - mongodb_secondary_data:/bitnami/mongodb
+    networks:
+      - appsmith-internal
+
+  redis:
+    image: docker.io/bitnami/redis:${REDIS_VERSION}
+    container_name: appsmith-redis
+    hostname: appsmith-redis
+    volumes:
+      - redis_data:/bitnami/redis
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    networks:
+      - appsmith-internal
+
+  appsmith:
+    image: docker.io/bitnami/appsmith:${APPSMITH_VERSION}
+    container_name: appsmith
+    hostname: appsmith
+    environment:
+      - APPSMITH_MODE=client
+      - APPSMITH_API_HOST=appsmith-api
+      - APPSMITH_RTS_HOST=appsmith-rts
+    ports:
+      - ${APPSMITH_PORT}:8080
+    networks:
+      - appsmith-internal
+      - appsmith-external
+
+  appsmith-api:
+    image: docker.io/bitnami/appsmith:${APPSMITH_VERSION}
+    container_name: appsmith-api
+    hostname: appsmith-api
+    environment:
+      - APPSMITH_MODE=backend
+      - APPSMITH_API_HOST=appsmith-api
+      - APPSMITH_DATABASE_HOST=appsmith-mongodb-primary,appsmith-mongodb-secondary
+      - APPSMITH_DATABASE_PORT_NUMBER=27017
+      - APPSMITH_DATABASE_USER=${MONGODB_USERNAME}
+      - APPSMITH_DATABASE_NAME=${MONGODB_DATABASE}
+      - APPSMITH_DATABASE_PASSWORD=${MONGODB_PASSWORD}
+      - APPSMITH_REDIS_PASSWORD=${REDIS_PASSWORD}
+      - APPSMITH_ENCRYPTION_PASSWORD=${APPSMITH_ENCRYPTION_PASSWORD}
+      - APPSMITH_ENCRYPTION_SALT=${APPSMITH_ENCRYPTION_SALT}
+      - APPSMITH_DATABASE_INIT_DELAY=90
+    volumes:
+      - appsmith_data:/bitnami/appsmith
+    networks:
+      - appsmith-internal
+
+  appsmith-rts:
+    image: docker.io/bitnami/appsmith:${APPSMITH_VERSION}
+    container_name: appsmith-rts
+    hostname: appsmith-rts
+    environment:
+      - APPSMITH_MODE=rts
+      - APPSMITH_API_HOST=appsmith-api
+      - APPSMITH_DATABASE_HOST=appsmith-mongodb-primary,appsmith-mongodb-secondary
+      - APPSMITH_DATABASE_PORT_NUMBER=27017
+      - APPSMITH_DATABASE_USER=${MONGODB_USERNAME}
+      - APPSMITH_DATABASE_NAME=${MONGODB_DATABASE}
+      - APPSMITH_DATABASE_PASSWORD=${MONGODB_PASSWORD}
+      - APPSMITH_DATABASE_INIT_DELAY=60
+    networks:
+      - appsmith-internal
+
+volumes:
+  mongodb_primary_data:
+  mongodb_secondary_data:
+  redis_data:
+  appsmith_data:
+
+networks:
+  appsmith-internal:
+    driver: bridge
+  appsmith-external:
+    name: appsmith-external
+    external: true
